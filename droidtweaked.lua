@@ -1,4 +1,4 @@
--- Aero Mobile: instalador autocontenido para Pastebin.
+-- Android Mobile: instalador autocontenido para Pastebin.
 -- No requiere HTTP ni descarga modulos externos.
 local FILES = {
   ['startup.lua'] = [[local function drawCentered(y, text, foreground)
@@ -19,10 +19,9 @@ local function startupAnimation()
   term.setTextColor(colors.white)
   term.clear()
 
-  drawCentered(top + 3, "o  ~  o", colors.cyan)
-  drawCentered(top + 4, "AERO MOBILE", colors.white)
-  drawCentered(top + 5, "Android inspired", colors.lightBlue)
-  drawCentered(top + 6, "Sky  /  Water  /  Life", colors.lightGray)
+  drawCentered(top + 3, "ANDROID", colors.lime)
+  drawCentered(top + 4, "MOBILE", colors.white)
+  drawCentered(top + 5, "Classic 2.x launcher", colors.lightGray)
 
   local barWidth = math.min(20, math.max(4, width - 4))
   local barX = math.max(1, math.floor((width - barWidth) / 2) + 1)
@@ -39,10 +38,10 @@ local function startupAnimation()
       local travel = math.max(0, innerWidth - blockWidth)
       local blockX = barX + 1 + (frame % (travel + 1))
       term.setCursorPos(blockX, barY)
-      term.setBackgroundColor(colors.cyan)
+      term.setBackgroundColor(colors.lime)
       term.write(string.rep(" ", blockWidth))
     end
-    drawCentered(top + 11, "Iniciando...", colors.gray)
+    drawCentered(top + 11, "Iniciando...", colors.lightGray)
     sleep(0.1)
   end
 
@@ -65,7 +64,7 @@ if not ok then
   term.setTextColor(colors.red)
   term.clear()
   term.setCursorPos(1, 1)
-  print("Aero Mobile: error de inicio")
+  print("Android Mobile: error de inicio")
   print(tostring(err))
   print("")
   print("Comprueba que /sys/mobile y /apps")
@@ -177,7 +176,7 @@ local function drawShutdownAnimation()
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.white)
     term.clear()
-    ui.center(math.max(1, centerY - 2), "Aero Mobile", colors.white, colors.black)
+    ui.center(math.max(1, centerY - 2), "Android Mobile", colors.white, colors.black)
     ui.center(centerY, "Apagando...", colors.lightGray, colors.black)
 
     if barWidth >= 3 and barX + barWidth - 1 <= width then
@@ -239,8 +238,8 @@ end
 local function render(ctx)
   local parent = term.current()
   local w, h = term.getSize()
-  term.setBackgroundColor(colors.white)
-  term.setTextColor(colors.black)
+  term.setBackgroundColor(colors.black)
+  term.setTextColor(colors.white)
   term.clear()
   local canSplit = ctx.split and ctx.splitApp and window and h >= 18
   if canSplit then
@@ -266,8 +265,8 @@ local function render(ctx)
     ui.title(ctx, ctx.app)
     local ok, err = pcall(ctx.app.draw, ctx)
     if not ok then
-      ui.text(2, 4, "Error de aplicación:", colors.red, colors.white)
-      ui.text(2, 5, tostring(err), colors.red, colors.white, term.getSize())
+      ui.text(2, 4, "Error de aplicación:", colors.red, colors.black)
+      ui.text(2, 5, tostring(err), colors.red, colors.black, term.getSize())
     end
   else
     ui.status(ctx)
@@ -323,7 +322,7 @@ local function isTouch(event, x, y, ctx)
   local w, h = term.getSize()
   local slot = math.max(1, math.floor(w / 4))
   if ctx.menu then
-    if y == h and x <= slot then
+    if y == h then
       ctx.menu = false
       return true
     end
@@ -362,7 +361,13 @@ local function isTouch(event, x, y, ctx)
     ctx.menu = false
   end
   if y == h then
-    if x <= slot then
+    if not ctx.app then
+      if x <= slot then startApp("gps", ctx)
+      elseif x <= slot * 2 then ctx.menu = not ctx.menu
+      elseif x <= slot * 3 then startApp("messenger", ctx)
+      else startApp("ie", ctx) end
+      return true
+    elseif x <= slot then
       ctx.menu = not ctx.menu
       return true
     end
@@ -529,29 +534,29 @@ return M
 local C = colors
 
 M.colors = {
-  blue = C.blue, title = C.lightBlue, navy = C.blue,
-  light = C.white, panel = C.lightBlue, text = C.black,
+  blue = C.lightBlue, title = C.gray, navy = C.black,
+  light = C.white, panel = C.gray, text = C.white,
   green = C.lime, gray = C.gray, red = C.red,
 }
 
 M.theme = {
-  sky = C.lightBlue,
-  deepBlue = C.blue,
-  paleBlue = C.cyan,
+  sky = C.gray,
+  deepBlue = C.black,
+  paleBlue = C.lightGray,
   grass = C.lime,
   leaf = C.green,
-  panel = C.white,
-  tile = C.white,
-  ink = C.black,
-  muted = C.gray,
+  panel = C.black,
+  tile = C.gray,
+  ink = C.white,
+  muted = C.lightGray,
   highlight = C.white,
 }
 
 local function backgroundColor(color)
-  if color == C.lightBlue then return C.cyan end
-  if color == C.cyan then return C.lightBlue end
+  if color == C.white then return C.black end
+  if color == C.lightGray or color == C.lightBlue then return C.gray end
+  if color == C.cyan then return C.blue end
   if color == C.green then return C.lime end
-  if color == C.lightGray then return C.white end
   return color
 end
 
@@ -577,9 +582,19 @@ function M.text(x, y, value, fg, bg, maxWidth)
   value = value:sub(1, math.max(0, w - x + 1))
   term.setCursorPos(math.max(1, x), y)
   if fg then
-    if fg == C.white and (bg == C.lightBlue or bg == C.cyan) then fg = C.blue
-    elseif fg == C.white and (bg == C.green or bg == C.lime
-      or bg == C.yellow or bg == C.orange) then fg = C.black end
+    local surface = bg and backgroundColor(bg)
+    if not bg then
+      if fg == C.black or fg == C.blue then fg = C.white
+      elseif fg == C.gray then fg = C.lightGray end
+    elseif surface == C.black or surface == C.gray then
+      if fg == C.black or fg == C.blue then fg = C.white
+      elseif fg == C.gray then fg = C.lightGray end
+    elseif surface == C.blue and (fg == C.black or fg == C.blue) then
+      fg = C.white
+    elseif fg == C.white and (surface == C.lime or surface == C.yellow
+      or surface == C.orange) then
+      fg = C.black
+    end
     term.setTextColor(fg)
   end
   if bg then term.setBackgroundColor(backgroundColor(bg)) end
@@ -597,7 +612,7 @@ function M.button(x, y, width, label, bg, fg)
   width = math.max(0, math.min(width, w - x + 1))
   if width == 0 then return { x = x, y = y, width = 0, height = 1 } end
   label = tostring(label)
-  bg = bg or C.cyan
+  bg = bg or C.gray
   M.fill(x, y, width, 1, bg)
   local caption = label:sub(1, width)
   local left = x + math.max(0, math.floor((width - #caption) / 2))
@@ -637,7 +652,7 @@ function M.status(ctx)
   local power = ctx.power or "--"
   local time = os.date("%H:%M")
   local notice = #ctx.notifications > 0 and "!" or " "
-  M.text(1, 1, " Aero", C.white, M.theme.deepBlue, math.min(7, w))
+  M.text(1, 1, " A", C.lime, M.theme.deepBlue, math.min(3, w))
   local indicators = signal .. " " .. power .. " " .. notice .. " " .. time
   M.text(math.max(1, w - #indicators + 1), 1, indicators, C.white, M.theme.deepBlue, #indicators)
 end
@@ -655,14 +670,19 @@ function M.dock(ctx)
   local w, h = term.getSize()
   local slot = math.max(1, math.floor(w / 4))
   M.fill(1, h, w, 1, M.theme.deepBlue)
-  M.button(1, h, slot, w < 32 and "Apps" or "Inicio", M.theme.grass, C.black)
-  if ctx.app then
+  if not ctx.app then
+    M.button(1, h, slot, "GPS", C.gray, C.white)
+    M.button(slot + 1, h, slot, "Apps", C.lightGray, C.black)
+    M.button(slot * 2 + 1, h, slot, "Chat", C.gray, C.white)
+    M.button(slot * 3 + 1, h, w - slot * 3, "Web", C.gray, C.white)
+  else
+    M.button(1, h, slot, w < 32 and "Menu" or "Menu", C.gray, C.white)
     local backLabel = w < 32 and "<" or "Atras"
     local menuLabel = w < 32 and "Menu" or "Menu"
     local closeLabel = w < 32 and "X" or "Cerrar"
     M.button(slot + 1, h, slot, backLabel, M.theme.sky, C.white)
     M.button(slot * 2 + 1, h, slot, menuLabel, M.theme.sky, C.white)
-    M.button(slot * 3 + 1, h, w - slot * 3, closeLabel, M.theme.paleBlue, C.blue)
+    M.button(slot * 3 + 1, h, w - slot * 3, closeLabel, M.theme.sky, C.white)
   end
 end
 
@@ -1018,38 +1038,62 @@ end
 local function weatherLine(world, width)
   local place = tostring(world.biome or "--")
   local weather = tostring(world.weather or "--")
-  return compact(place .. " / " .. weather, width)
+  return compact(place .. " / " .. weather .. " / " .. dimensionName(world), width)
+end
+
+local digitGlyphs = {
+  ["0"] = { " _ ", "| |", "|_|" },
+  ["1"] = { "   ", "  |", "  |" },
+  ["2"] = { " _ ", " _|", "|_ " },
+  ["3"] = { " _ ", " _|", " _|" },
+  ["4"] = { "   ", "|_|", "  |" },
+  ["5"] = { " _ ", "|_ ", " _|" },
+  ["6"] = { " _ ", "|_ ", "|_|" },
+  ["7"] = { " _ ", "  |", "  |" },
+  ["8"] = { " _ ", "|_|", "|_|" },
+  ["9"] = { " _ ", "|_|", " _|" },
+  [":"] = { " ", ".", "." },
+}
+
+local function drawClock(w)
+  local clock = os.date("%H:%M")
+  local width = #clock * 4 - 1
+  if w < width + 2 then
+    centered(2, 3, w - 2, clock, colors.white, colors.gray)
+    return
+  end
+  local x = math.floor((w - width) / 2) + 1
+  for index = 1, #clock do
+    local glyph = digitGlyphs[clock:sub(index, index)]
+    local offset = x + (index - 1) * 4
+    for row = 1, 3 do
+      ui.text(offset, row + 1, glyph[row], colors.white, colors.gray, 3)
+    end
+  end
 end
 
 function M.draw(ctx)
   local w, h = term.getSize()
   local world = ctx.world or {}
 
-  ui.fill(1, 2, w, math.max(1, h - 2), colors.cyan)
-  ui.fill(1, 2, w, 1, colors.lightBlue)
-  ui.text(2, 2, "AERO MOBILE", colors.white, colors.lightBlue)
-  if w >= 24 then
-    ui.text(w - 8, 2, "AERO", colors.white, colors.lightBlue, 5)
+  ui.fill(1, 2, w, math.max(1, h - 2), colors.black)
+  for y = 2, h - 2 do
+    for x = 1, w do
+      if (x * 7 + y * 11) % 29 == 0 then
+        ui.text(x, y, ".", colors.gray, colors.black, 1)
+      end
+    end
   end
 
-  ui.fill(2, 3, math.max(1, w - 2), 4, colors.cyan)
-  ui.fill(2, 3, math.max(1, w - 2), 1, colors.lightBlue)
-  ui.text(3, 3, "o  BIENVENIDO A TU MUNDO", colors.blue, colors.lightBlue, w - 4)
-  ui.text(3, 4, compact("Dimension: " .. dimensionName(world), w - 4),
-    colors.blue, colors.cyan, w - 4)
-  ui.text(3, 5, weatherLine(world, w - 4), colors.blue, colors.cyan, w - 4)
-  local moonTime = "Luna " .. tostring(world.moon or "--") .. "  |  " .. tostring(world.worldTime or "--")
-  ui.text(3, 6, compact(moonTime, w - 4), colors.blue, colors.cyan, w - 4)
+  ui.fill(2, 2, math.max(1, w - 2), 3, colors.gray)
+  drawClock(w)
+  ui.text(2, 5, compact(os.date("%a, %d %b") .. "  " .. weatherLine(world, w - 2),
+    w - 2), colors.white, colors.black, w - 2)
 
-  ui.fill(1, 7, w, 1, colors.green)
-  ui.text(2, 7, os.date("%A, %d %B"), colors.black, colors.green, w - 2)
-  if w >= 32 then
-    ui.text(w - 11, 7, "AIRE / AGUA", colors.black, colors.green, 11)
-  end
-
-  local columns = w < 22 and 2 or 3
+  local columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  local rows = math.max(1, math.min(4, math.floor((h - 7) / 3)))
   local cell = math.max(1, math.floor((w - 2) / columns))
-  local perPage = columns * 3
+  local perPage = columns * rows
   local pages = math.max(1, math.ceil(#apps / perPage))
   page = math.min(page, pages)
   local first = (page - 1) * perPage + 1
@@ -1060,44 +1104,45 @@ function M.draw(ctx)
     local column = localIndex % columns
     local row = math.floor(localIndex / columns)
     local x = 2 + column * cell
-    local y = 8 + row * 3
+    local y = 6 + row * 3
     if y < h - 2 then
       local tileWidth = math.max(1, math.min(cell - 1, w - x + 1))
-      ui.fill(x, y, tileWidth, 2, colors.white)
+      ui.fill(x, y, tileWidth, 2, colors.black)
       ui.fill(x, y, tileWidth, 1, iconColors[i])
       centered(x, y, tileWidth, "[" .. entry[3] .. "]", colors.white, iconColors[i])
-      centered(x, y + 1, tileWidth, entry[1], colors.blue, colors.white)
+      centered(x, y + 1, tileWidth, entry[1], colors.white, colors.black)
     end
   end
 
   if pages > 1 and h >= 12 then
-    ui.fill(1, h - 2, w, 1, colors.lightBlue)
-    ui.text(2, h - 2, "<", colors.white, colors.blue, 1)
+    ui.fill(1, h - 2, w, 1, colors.black)
+    ui.text(2, h - 2, "<", colors.white, colors.gray, 1)
     ui.text(math.max(1, math.floor((w - 5) / 2)), h - 2,
-      "APPS " .. page .. "/" .. pages, colors.white, colors.lightBlue, 12)
-    ui.text(w, h - 2, ">", colors.white, colors.blue, 1)
+      "o " .. page .. "/" .. pages .. " o", colors.white, colors.black, 12)
+    ui.text(w, h - 2, ">", colors.white, colors.gray, 1)
   elseif #ctx.notifications > 0 and h >= 12 then
-    ui.fill(2, h - 2, math.max(1, w - 2), 1, colors.yellow)
+    ui.fill(2, h - 2, math.max(1, w - 2), 1, colors.gray)
     ui.text(3, h - 2, "!" .. compact(ctx.notifications[#ctx.notifications], w - 4),
-      colors.black, colors.yellow, w - 4)
+      colors.white, colors.gray, w - 4)
   end
 end
 
 function M.touch(ctx, x, y, startApp)
   local w = term.getSize()
   local _, h = term.getSize()
-  local columns = w < 22 and 2 or 3
-  local perPage = columns * 3
+  local columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  local rows = math.max(1, math.min(4, math.floor((h - 7) / 3)))
+  local perPage = columns * rows
   local pages = math.max(1, math.ceil(#apps / perPage))
   if pages > 1 and y == h - 2 then
     if x <= 3 then page = page > 1 and page - 1 or pages
     elseif x >= w - 2 then page = page < pages and page + 1 or 1 end
     return
   end
-  if y < 8 then return end
+  if y < 6 then return end
   local cell = math.max(1, math.floor((w - 2) / columns))
   local col = math.floor((x - 2) / cell)
-  local row = math.floor((y - 8) / 3)
+  local row = math.floor((y - 6) / 3)
   if col < 0 or col >= columns or row < 0 or x > w - 1 then return end
   local index = (page - 1) * perPage + row * columns + col + 1
   if apps[index] and y <= h - 3 then
@@ -1158,7 +1203,7 @@ local function browse(url)
     return
   end
   state.url, state.scroll = url, 1
-  local ok, response, reason = pcall(http.get, url, { ["User-Agent"] = "Aero-Mobile/1.0" })
+  local ok, response, reason = pcall(http.get, url, { ["User-Agent"] = "Android-Mobile/1.0" })
   if not ok or not response then
     state.message = "No se pudo abrir la página: " .. tostring(ok and reason or response)
     state.lines = { state.message }
@@ -1331,7 +1376,7 @@ function M.touch(ctx, x, y)
     if type(fn) ~= "function" then
       ctx.notify("Este Chat Box no ofrece sendMessage.")
     else
-      local ok, err = pcall(fn, message, "Aero Mobile", "[]")
+      local ok, err = pcall(fn, message, "Android Mobile", "[]")
       if ok then
         add("Yo: " .. message)
         ctx.notify("Mensaje enviado")
@@ -1494,7 +1539,7 @@ function M.touch(ctx, x, y)
       local current, lines = lib.readFile(state.selected, 12000)
       if not current then ctx.notify("No se pudo leer: " .. tostring(lines)); return end
       ui.fill(1, 3, term.getSize(), h - 4, colors.black)
-      print("Editor Aero - " .. fs.getName(state.selected))
+      print("Editor Android - " .. fs.getName(state.selected))
       print("Escribe el texto por lineas; una linea con . guarda.")
       local replacement = {}
       while true do
@@ -1518,7 +1563,7 @@ return M
 ]],
   ['apps/media.lua'] = [[local ui = require("sys.mobile.ui")
 local peripherals = require("sys.mobile.peripherals")
-local M = { title = "Aero Media Player" }
+local M = { title = "Android Media Player" }
 local state = { tracks = {}, selected = 1, playing = false, stop = false, speaker = nil, message = "DFPWM en /music o /disk" }
 
 local function scan()
@@ -1542,7 +1587,7 @@ end
 function M.draw()
   local w, h = term.getSize()
   ui.fill(2, 3, w - 3, 2, colors.blue)
-  ui.center(3, "Aero Media Player", colors.white, colors.blue)
+  ui.center(3, "Android Media Player", colors.white, colors.blue)
   ui.button(2, 6, 7, "Play", colors.green, colors.black)
   ui.button(10, 6, 8, "Pause", colors.lightBlue)
   ui.button(20, 6, 7, "Stop", colors.red)
@@ -1619,7 +1664,7 @@ return M
   ['apps/cmd.lua'] = [[local ui = require("sys.mobile.ui")
 local lib = require("sys.mobile.lib")
 local M = { title = "Pocket CMD" }
-local state = { history = { "Aero Terminal. Toca Ejecutar para introducir un comando." } }
+local state = { history = { "Android Terminal. Toca Ejecutar para introducir un comando." } }
 
 function M.draw()
   local w, h = term.getSize()
@@ -2266,7 +2311,7 @@ local function readResponse(url, limit)
     return nil, "HTTP no está habilitado en CraftOS."
   end
   local ok, response, reason = pcall(http.get, url, {
-    ["User-Agent"] = "Aero-Mobile/1.0",
+    ["User-Agent"] = "Android-Mobile/1.0",
     ["Accept"] = "application/json",
   })
   if not ok or not response then
@@ -2898,7 +2943,7 @@ local function install()
   end
 
   if fs.exists(stage) then fs.delete(stage) end
-  print("Aero Mobile instalado correctamente.")
+  print("Android Mobile instalado correctamente.")
   print("Archivos instalados: " .. tostring(#installed))
   if #backedUp > 0 then
     print("Copia de seguridad de los archivos previos: " .. backup)
@@ -2908,5 +2953,5 @@ end
 
 local ok, reason = pcall(install)
 if not ok then
-  printError("Aero Mobile: " .. tostring(reason))
+  printError("Android Mobile: " .. tostring(reason))
 end
