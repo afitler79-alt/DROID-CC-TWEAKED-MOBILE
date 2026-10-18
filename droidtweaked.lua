@@ -7,6 +7,9 @@ local FILES = {
   text = tostring(text)
   if #text > width then text = text:sub(1, width) end
   term.setCursorPos(math.max(1, math.floor((width - #text) / 2) + 1), y)
+  if type(term.isColor) ~= "function" or not term.isColor() then
+    foreground = colors.white
+  end
   term.setTextColor(foreground or colors.white)
   term.setBackgroundColor(colors.black)
   term.write(text)
@@ -38,7 +41,8 @@ local function startupAnimation()
       local travel = math.max(0, innerWidth - blockWidth)
       local blockX = barX + 1 + (frame % (travel + 1))
       term.setCursorPos(blockX, barY)
-      term.setBackgroundColor(colors.lime)
+      term.setBackgroundColor(type(term.isColor) == "function" and term.isColor()
+        and colors.lime or colors.white)
       term.write(string.rep(" ", blockWidth))
     end
     drawCentered(top + 11, "Iniciando...", colors.lightGray)
@@ -61,7 +65,8 @@ end)
 
 if not ok then
   term.setBackgroundColor(colors.black)
-  term.setTextColor(colors.red)
+  term.setTextColor(type(term.isColor) == "function" and term.isColor()
+    and colors.red or colors.white)
   term.clear()
   term.setCursorPos(1, 1)
   print("Android Mobile: error de inicio")
@@ -181,13 +186,13 @@ local function drawShutdownAnimation()
 
     if barWidth >= 3 and barX + barWidth - 1 <= width then
       term.setCursorPos(barX, barY)
-      term.setTextColor(colors.gray)
+      term.setTextColor(ui.isBasicMode() and colors.white or colors.gray)
       term.write("[" .. string.rep(" ", innerWidth) .. "]")
 
       local remaining = math.max(0, innerWidth - math.floor(frame * innerWidth / 11))
       if remaining > 0 then
         term.setCursorPos(barX + 1, barY)
-        term.setBackgroundColor(colors.blue)
+        term.setBackgroundColor(ui.isBasicMode() and colors.white or colors.blue)
         term.write(string.rep(" ", remaining))
       end
     end
@@ -195,7 +200,7 @@ local function drawShutdownAnimation()
   end
 
   term.setBackgroundColor(colors.black)
-  term.setTextColor(colors.lightGray)
+  term.setTextColor(ui.isBasicMode() and colors.white or colors.lightGray)
   term.clear()
   ui.center(centerY, "Ya puedes apagar el equipo.", colors.lightGray, colors.black)
   sleep(0.35)
@@ -274,44 +279,62 @@ local function render(ctx)
   end
   if ctx.menu then
     local w, h = term.getSize()
-    local x, y = 1, math.max(2, h - 8)
-    local panelWidth = math.min(w, 28)
-    local columnWidth = math.max(1, math.floor(panelWidth / 2))
-    ui.fill(x, y, panelWidth, 8, colors.lightGray)
-    ui.fill(x, y, panelWidth, 1, colors.blue)
-    ui.text(x + 1, y, "Programas", colors.white, colors.blue, panelWidth - 2)
-    if x + panelWidth <= w then
-      ui.fill(x + panelWidth, y + 1, 1, 7, colors.gray)
-    end
-    if y + 8 < h then
-      ui.fill(x + 1, y + 8, panelWidth, 1, colors.gray)
-    end
-    local pages = {
-      {
-        { "IE Mobile", "Radar", "Messenger", "Create", "GPS" },
-        { "Archivos", "Ajustes", "Pocket CMD", "Geo Scanner", "Split", "Mapa" },
-      },
-      {
-        { "Calculadora", "Notas", "Reloj", "Redstone", "Inventario" },
-        { "Media", "Inicio", "Apagar", "YouTube", "" },
-      },
-    }
-    local entries = pages[ctx.menuPage or 1]
-    for row = 1, 6 do
-      local rowY = y + row
-      for column = 1, 2 do
-        local label = entries[column][row]
-        if label and label ~= "" then
-          local cellX = x + (column - 1) * columnWidth
-          local color = row % 2 == 0 and colors.white or colors.lightGray
-          ui.fill(cellX, rowY, math.min(columnWidth, panelWidth - (column - 1) * columnWidth), 1, color)
-          ui.text(cellX + 1, rowY, label, colors.blue, color, math.max(1, columnWidth - 2))
+    if ui.isBasicMode() then
+      local menuItems = { "Archivos", "Calculadora", "Notas", "Reloj", "Mapa", "Apagar" }
+      local x, y = 1, math.max(2, h - 8)
+      local panelWidth = math.min(w, 20)
+      ui.fill(x, y, panelWidth, math.min(8, h - y), colors.black)
+      ui.fill(x, y, panelWidth, 1, colors.white)
+      ui.text(x + 1, y, "BASIC MENU", colors.black, colors.white, panelWidth - 2)
+      for row, label in ipairs(menuItems) do
+        local rowY = y + row
+        if rowY < h then
+          local fg = row % 2 == 0 and colors.black or colors.white
+          local bg = row % 2 == 0 and colors.white or colors.black
+          ui.fill(x, rowY, panelWidth, 1, bg)
+          ui.text(x + 1, rowY, row .. ". " .. label, fg, bg, panelWidth - 2)
         end
       end
+    else
+      local x, y = 1, math.max(2, h - 8)
+      local panelWidth = math.min(w, 28)
+      local columnWidth = math.max(1, math.floor(panelWidth / 2))
+      ui.fill(x, y, panelWidth, 8, colors.lightGray)
+      ui.fill(x, y, panelWidth, 1, colors.blue)
+      ui.text(x + 1, y, "Programas", colors.white, colors.blue, panelWidth - 2)
+      if x + panelWidth <= w then
+        ui.fill(x + panelWidth, y + 1, 1, 7, colors.gray)
+      end
+      if y + 8 < h then
+        ui.fill(x + 1, y + 8, panelWidth, 1, colors.gray)
+      end
+      local pages = {
+        {
+          { "IE Mobile", "Radar", "Messenger", "Create", "GPS" },
+          { "Archivos", "Ajustes", "Pocket CMD", "Geo Scanner", "Split", "Mapa" },
+        },
+        {
+          { "Calculadora", "Notas", "Reloj", "Redstone", "Inventario" },
+          { "Media", "Inicio", "Apagar", "YouTube", "" },
+        },
+      }
+      local entries = pages[ctx.menuPage or 1]
+      for row = 1, 6 do
+        local rowY = y + row
+        for column = 1, 2 do
+          local label = entries[column][row]
+          if label and label ~= "" then
+            local cellX = x + (column - 1) * columnWidth
+            local color = row % 2 == 0 and colors.white or colors.lightGray
+            ui.fill(cellX, rowY, math.min(columnWidth, panelWidth - (column - 1) * columnWidth), 1, color)
+            ui.text(cellX + 1, rowY, label, colors.blue, color, math.max(1, columnWidth - 2))
+          end
+        end
+      end
+      local footerY = y + 7
+      ui.text(x + 1, footerY, ctx.menuPage == 2 and "< Apps 2/2" or "Apps 1/2 >",
+        colors.blue, colors.lightGray, panelWidth - 2)
     end
-    local footerY = y + 7
-    ui.text(x + 1, footerY, ctx.menuPage == 2 and "< Apps 2/2" or "Apps 1/2 >",
-      colors.blue, colors.lightGray, panelWidth - 2)
   end
   term.redirect(parent)
   ui.status(ctx)
@@ -321,6 +344,23 @@ end
 local function isTouch(event, x, y, ctx)
   local w, h = term.getSize()
   local slot = math.max(1, math.floor(w / 4))
+  if ctx.menu and ui.isBasicMode() then
+    if y == h then
+      ctx.menu = false
+      return true
+    end
+    local menuTop = math.max(2, h - 8)
+    local row = y - menuTop
+    local actions = { "explorer", "calculator", "notes", "clock", "map", "shutdown" }
+    if x <= math.min(w, 20) and row >= 1 and row <= #actions and y < h then
+      ctx.menu = false
+      if actions[row] == "shutdown" then shutdown(ctx)
+      else startApp(actions[row], ctx) end
+    else
+      ctx.menu = false
+    end
+    return true
+  end
   if ctx.menu then
     if y == h then
       ctx.menu = false
@@ -362,7 +402,12 @@ local function isTouch(event, x, y, ctx)
   end
   if y == h then
     if not ctx.app then
-      if x <= slot then startApp("gps", ctx)
+      if ui.isBasicMode() then
+        if x <= slot then startApp("explorer", ctx)
+        elseif x <= slot * 2 then ctx.menu = not ctx.menu
+        elseif x <= slot * 3 then startApp("notes", ctx)
+        else startApp("clock", ctx) end
+      elseif x <= slot then startApp("gps", ctx)
       elseif x <= slot * 2 then ctx.menu = not ctx.menu
       elseif x <= slot * 3 then startApp("messenger", ctx)
       else startApp("ie", ctx) end
@@ -417,7 +462,8 @@ local function isTouch(event, x, y, ctx)
 end
 
 function M.run()
-  if not term.isColor() then error("Se requiere una terminal a color") end
+  local hasColor = type(term.isColor) == "function" and term.isColor()
+  ui.setBasicMode(not hasColor)
   local settings = loadSettings()
   sound.play("startup", settings.clickSounds)
   local ctx
@@ -428,8 +474,8 @@ function M.run()
     menu = false,
     notifications = {},
     jobs = {},
-    world = sensors.world(),
-    power = sensors.power(),
+    world = hasColor and sensors.world() or {},
+    power = hasColor and sensors.power() or "--",
     spawn = function(fn, onError)
       local thread = coroutine.create(fn)
       local job = { thread = thread, onError = onError }
@@ -491,8 +537,10 @@ function M.run()
       event = { "mouse_click", 1, event[3], event[4] }
     end
     if event[1] == "timer" and event[2] == tick then
-      ctx.world = sensors.world()
-      ctx.power = sensors.power()
+      if hasColor then
+        ctx.world = sensors.world()
+        ctx.power = sensors.power()
+      end
       if ctx.appName == "radar" and ctx.app.refresh then
         pcall(ctx.app.refresh, ctx)
       elseif ctx.appName == "create" and ctx.app.refresh then
@@ -502,11 +550,13 @@ function M.run()
         local ticked, tickError = pcall(ctx.app.tick, ctx)
         if not ticked then ctx.notify("Error de app: " .. tostring(tickError)) end
       end
-      local telemetry = sensors.createTelemetry(settings)
-      if telemetry and telemetry.overstressed and not lastAlert then
-        ctx.notify("Create Overstress: red detenida")
+      if hasColor then
+        local telemetry = sensors.createTelemetry(settings)
+        if telemetry and telemetry.overstressed and not lastAlert then
+          ctx.notify("Create Overstress: red detenida")
+        end
+        lastAlert = telemetry and telemetry.overstressed or false
       end
-      lastAlert = telemetry and telemetry.overstressed or false
       tick = os.startTimer(1)
     elseif event[1] == "mouse_click" then
       ctx.playSound("click")
@@ -532,6 +582,7 @@ return M
 ]],
   ['sys/mobile/ui.lua'] = [[local M = {}
 local C = colors
+local basicMode = false
 
 M.colors = {
   blue = C.lightBlue, title = C.gray, navy = C.black,
@@ -560,6 +611,23 @@ local function backgroundColor(color)
   return color
 end
 
+local function basicColor(color)
+  if color == C.white or color == C.lightGray or color == C.lightBlue
+    or color == C.cyan or color == C.lime or color == C.yellow
+    or color == C.orange or color == C.pink then
+    return C.white
+  end
+  return C.black
+end
+
+function M.setBasicMode(enabled)
+  basicMode = enabled == true
+end
+
+function M.isBasicMode()
+  return basicMode
+end
+
 function M.size()
   return term.getSize()
 end
@@ -567,7 +635,8 @@ end
 function M.fill(x, y, width, height, color, char)
   local w, h = term.getSize()
   local line = string.rep(char or " ", math.max(0, math.min(width, w)))
-  term.setBackgroundColor(backgroundColor(color or C.black))
+  term.setBackgroundColor(basicMode and basicColor(color or C.black)
+    or backgroundColor(color or C.black))
   for row = math.max(1, y), math.min(h, y + height - 1) do
     term.setCursorPos(math.max(1, x), row)
     term.write(line:sub(1, math.max(0, w - x + 1)))
@@ -582,8 +651,14 @@ function M.text(x, y, value, fg, bg, maxWidth)
   value = value:sub(1, math.max(0, w - x + 1))
   term.setCursorPos(math.max(1, x), y)
   if fg then
-    local surface = bg and backgroundColor(bg)
-    if not bg then
+    local surface = bg and (basicMode and basicColor(bg) or backgroundColor(bg))
+    if basicMode then
+      if bg then
+        fg = surface == C.white and C.black or C.white
+      else
+        fg = basicColor(fg)
+      end
+    elseif not bg then
       if fg == C.black or fg == C.blue then fg = C.white
       elseif fg == C.gray then fg = C.lightGray end
     elseif surface == C.black or surface == C.gray then
@@ -597,7 +672,9 @@ function M.text(x, y, value, fg, bg, maxWidth)
     end
     term.setTextColor(fg)
   end
-  if bg then term.setBackgroundColor(backgroundColor(bg)) end
+  if bg then
+    term.setBackgroundColor(basicMode and basicColor(bg) or backgroundColor(bg))
+  end
   term.write(value)
 end
 
@@ -648,6 +725,13 @@ end
 function M.status(ctx)
   local w = term.getSize()
   M.fill(1, 1, w, 1, M.theme.deepBlue)
+  if basicMode then
+    local notice = #ctx.notifications > 0 and "!" or ""
+    M.text(1, 1, " BASIC", C.white, C.black, math.min(7, w))
+    local indicators = notice .. " " .. os.date("%H:%M")
+    M.text(math.max(1, w - #indicators + 1), 1, indicators, C.white, C.black, #indicators)
+    return
+  end
   local signal = http and http.get and "W" or "X"
   local power = ctx.power or "--"
   local time = os.date("%H:%M")
@@ -671,10 +755,17 @@ function M.dock(ctx)
   local slot = math.max(1, math.floor(w / 4))
   M.fill(1, h, w, 1, M.theme.deepBlue)
   if not ctx.app then
-    M.button(1, h, slot, "GPS", C.gray, C.white)
-    M.button(slot + 1, h, slot, "Apps", C.lightGray, C.black)
-    M.button(slot * 2 + 1, h, slot, "Chat", C.gray, C.white)
-    M.button(slot * 3 + 1, h, w - slot * 3, "Web", C.gray, C.white)
+    if basicMode then
+      M.button(1, h, slot, w < 20 and "File" or "Files", C.gray, C.white)
+      M.button(slot + 1, h, slot, "Apps", C.lightGray, C.black)
+      M.button(slot * 2 + 1, h, slot, w < 20 and "Note" or "Notes", C.gray, C.white)
+      M.button(slot * 3 + 1, h, w - slot * 3, w < 20 and "Time" or "Clock", C.gray, C.white)
+    else
+      M.button(1, h, slot, "GPS", C.gray, C.white)
+      M.button(slot + 1, h, slot, "Apps", C.lightGray, C.black)
+      M.button(slot * 2 + 1, h, slot, "Chat", C.gray, C.white)
+      M.button(slot * 3 + 1, h, w - slot * 3, "Web", C.gray, C.white)
+    end
   else
     M.button(1, h, slot, w < 32 and "Menu" or "Menu", C.gray, C.white)
     local backLabel = w < 32 and "<" or "Atras"
@@ -1012,6 +1103,17 @@ local iconColors = {
 }
 
 local page = 1
+local basicApps = {
+  { "Files", "explorer", "FILE" },
+  { "Calc", "calculator", "123" },
+  { "Notes", "notes", "TXT" },
+  { "Clock", "clock", "TIME" },
+  { "Map", "map", "MAP" },
+}
+
+local function visibleApps()
+  return ui.isBasicMode() and basicApps or apps
+end
 
 local function compact(text, width)
   text = tostring(text or "")
@@ -1075,6 +1177,7 @@ end
 function M.draw(ctx)
   local w, h = term.getSize()
   local world = ctx.world or {}
+  local visible = visibleApps()
 
   ui.fill(1, 2, w, math.max(1, h - 2), colors.black)
   for y = 2, h - 2 do
@@ -1087,19 +1190,25 @@ function M.draw(ctx)
 
   ui.fill(2, 2, math.max(1, w - 2), 3, colors.gray)
   drawClock(w)
-  ui.text(2, 5, compact(os.date("%a, %d %b") .. "  " .. weatherLine(world, w - 2),
-    w - 2), colors.white, colors.black, w - 2)
+  local subtitle = ui.isBasicMode() and "Basic mode / offline" or
+    os.date("%a, %d %b") .. "  " .. weatherLine(world, w - 2)
+  ui.text(2, 5, compact(subtitle, w - 2), colors.white, colors.black, w - 2)
 
-  local columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  local columns
+  if ui.isBasicMode() then
+    columns = w < 22 and 2 or 3
+  else
+    columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  end
   local rows = math.max(1, math.min(4, math.floor((h - 7) / 3)))
   local cell = math.max(1, math.floor((w - 2) / columns))
   local perPage = columns * rows
-  local pages = math.max(1, math.ceil(#apps / perPage))
+  local pages = math.max(1, math.ceil(#visible / perPage))
   page = math.min(page, pages)
   local first = (page - 1) * perPage + 1
-  local last = math.min(#apps, first + perPage - 1)
+  local last = math.min(#visible, first + perPage - 1)
   for i = first, last do
-    local entry = apps[i]
+    local entry = visible[i]
     local localIndex = i - first
     local column = localIndex % columns
     local row = math.floor(localIndex / columns)
@@ -1108,8 +1217,11 @@ function M.draw(ctx)
     if y < h - 2 then
       local tileWidth = math.max(1, math.min(cell - 1, w - x + 1))
       ui.fill(x, y, tileWidth, 2, colors.black)
-      ui.fill(x, y, tileWidth, 1, iconColors[i])
-      centered(x, y, tileWidth, "[" .. entry[3] .. "]", colors.white, iconColors[i])
+      local iconColor = ui.isBasicMode() and (i % 2 == 0 and colors.white or colors.black)
+        or iconColors[i]
+      ui.fill(x, y, tileWidth, 1, iconColor)
+      centered(x, y, tileWidth, "[" .. entry[3] .. "]",
+        iconColor == colors.white and colors.black or colors.white, iconColor)
       centered(x, y + 1, tileWidth, entry[1], colors.white, colors.black)
     end
   end
@@ -1130,10 +1242,16 @@ end
 function M.touch(ctx, x, y, startApp)
   local w = term.getSize()
   local _, h = term.getSize()
-  local columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  local visible = visibleApps()
+  local columns
+  if ui.isBasicMode() then
+    columns = w < 22 and 2 or 3
+  else
+    columns = w >= 34 and 4 or (w < 22 and 2 or 3)
+  end
   local rows = math.max(1, math.min(4, math.floor((h - 7) / 3)))
   local perPage = columns * rows
-  local pages = math.max(1, math.ceil(#apps / perPage))
+  local pages = math.max(1, math.ceil(#visible / perPage))
   if pages > 1 and y == h - 2 then
     if x <= 3 then page = page > 1 and page - 1 or pages
     elseif x >= w - 2 then page = page < pages and page + 1 or 1 end
@@ -1145,8 +1263,8 @@ function M.touch(ctx, x, y, startApp)
   local row = math.floor((y - 6) / 3)
   if col < 0 or col >= columns or row < 0 or x > w - 1 then return end
   local index = (page - 1) * perPage + row * columns + col + 1
-  if apps[index] and y <= h - 3 then
-    startApp(apps[index][2], ctx)
+  if visible[index] and y <= h - 3 then
+    startApp(visible[index][2], ctx)
   end
 end
 
