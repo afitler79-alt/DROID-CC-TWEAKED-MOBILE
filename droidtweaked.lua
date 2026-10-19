@@ -3560,14 +3560,12 @@ local function play(url)
             term.write("Status: ")
             write_colored(data.message, colors.green)
             term.setTextColor(colors.white)
+        elseif data.action == "error" then
+            error(data.message or "The YouCube server returned an error")
         else
             new_line()
         end
     until data.action == "media"
-
-    if data.action == "error" then
-        error(data.message)
-    end
 
     term.write("Playing: ")
     term.setTextColor(colors.lime)
@@ -3642,7 +3640,8 @@ local function play(url)
             end
 
             os.queueEvent("youcube:vid_playing", data)
-            libs.youcubeapi.play_vid(video_buffer, args.force_fps, string_unpack)
+            libs.youcubeapi.play_vid(video_buffer, args.force_fps, string_unpack,
+                youcubeapi.server == "wss://youcube.onrender.com")
             os.queueEvent("youcube:vid_eof", data)
         end
     end
@@ -3862,6 +3861,7 @@ function API:detect_bestest_server(_server, _verbose)
                 print(server)
                 term.setTextColor(colors.white)
                 self.websocket = websocket
+                self.server = server
                 break
             elseif i == #servers then
                 error(websocket_error)
@@ -4279,7 +4279,7 @@ end
     and [sanjuuni/websocket-player.lua](https://github.com/MCJack123/sanjuuni/blob/30dcabb4b56f1eb32c88e1bce384b0898367ebda/websocket-player.lua)
     @tparam Buffer buffer filled with frames
 ]]
-local function play_vid(buffer, force_fps, string_unpack)
+local function play_vid(buffer, force_fps, string_unpack, auto_advance)
     if not string_unpack then
         string_unpack = string.unpack
     end
@@ -4368,7 +4368,7 @@ local function play_vid(buffer, force_fps, string_unpack)
             term.setPaletteColor(2 ^ i, r / 255, g / 255, b / 255)
         end
         if fps == 0 then
-            read()
+            if not auto_advance then read() end
             break
         else
             while os.epoch("utc") < start + (frame_count + 1) / fps * 1000 do
