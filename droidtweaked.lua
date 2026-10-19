@@ -3372,7 +3372,9 @@ local function get_audiodevices()
     end
 
     if #valid_audiodevices == 0 then
-        error(last_error)
+        args.no_audio = true
+        printError("No se encontró un dispositivo de audio compatible: " .. tostring(last_error))
+        return {}
     end
 
     return valid_audiodevices
