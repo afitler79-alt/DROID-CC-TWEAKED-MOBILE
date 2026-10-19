@@ -3580,11 +3580,6 @@ local function play(url)
         print("Views: " .. libs.numberformatter.compact(data.view_count))
     end
 
-    if not args.no_video then
-        -- wait, that the user can see the video info
-        sleep(2)
-    end
-
     local video_buffer = libs.youcubeapi.Buffer.new(
         libs.youcubeapi.VideoFiller.new(youcubeapi, data.id, term.getSize()),
         60 -- Most videos run on 30 fps, so we store 2s of video.
@@ -3734,7 +3729,8 @@ end
 
 local function main()
     youcubeapi:detect_bestest_server(nil, args.verbose)
-    pcall(update_checker)
+    -- Skip the optional update check: it performs an extra HTTP request and
+    -- websocket handshake before playback, which is costly on pocket computers.
 
     if not args.URL then
         print("Enter Url or Search Term:")
