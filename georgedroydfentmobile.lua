@@ -61,9 +61,25 @@ end
 return true
 end
 if ctx.app and y==2 and x>=w-2 then closeApp(ctx);return true end
-if not ctx.app then require("apps.home").touch(ctx,x,y,startApp);return true end
+if not ctx.app then
+require("apps.home").touch(ctx,x,y,startApp)
+return true
+end
 if ctx.app.touch then pcall(ctx.app.touch,ctx,x,y) end
 return true
+end
+local function handleKey(key,ctx)
+if not ctx.app then
+local ok,handled=require("apps.home").key(ctx,key)
+if handled then return true end
+return false
+end
+if ctx.app.key then
+local ok,handled=pcall(ctx.app.key,ctx,key)
+if ok and handled then return true end
+end
+if key==keys.escape then closeApp(ctx);return true end
+return false
 end
 function M.run()
 snd.play("startup",true)
@@ -74,6 +90,7 @@ render(ctx)
 local ev={os.pullEvent()}
 if ev[1]=="timer" and ev[2]==tick then tick=os.startTimer(1)
 elseif ev[1]=="mouse_click" then snd.play("click",true);touch(ev[2],ev[3],ctx)
+elseif ev[1]=="key" then handleKey(ev[2],ctx)
 elseif ctx.app and ctx.app.event then pcall(ctx.app.event,ctx,unpack(ev))
 end
 end
@@ -170,6 +187,8 @@ return M
 ]],
 ['apps/home.lua']=[[local ui=require("sys.mobile.ui");local M={title="Inicio"}
 local items={{"Musica","music",colors.green},{"Media","media",colors.blue},{"Apagar","shutdown",colors.red}}
+local cursor=1
+local ICON_X=2;local ICON_W=20;local ICON_Y0=8;local ICON_H=3
 function M.draw(ctx)
 local w,h=term.getSize()
 ui.fill(1,2,w,h-3,colors.black)
@@ -177,22 +196,55 @@ ui.fill(2,2,w-3,2,colors.gray)
 ui.center(2,os.date("%H:%M"),colors.white,colors.gray)
 ui.text(2,5,os.date("%a %d %b"),colors.lightGray,colors.black,w-2)
 for i,e in ipairs(items) do
-local y=8+(i-1)*3
-if y<h-2 then
-ui.fill(2,y,w-4,2,colors.black)
-ui.fill(2,y,w-4,1,e[3])
-ui.center(y,"["..e[1].."]",colors.white,e[3])
-ui.text(3,y+1,e[1],colors.white,colors.black,w-4)
+local y=ICON_Y0+(i-1)*ICON_H
+if y+1<h-2 then
+local sel=i==cursor
+local bg=sel and colors.white or colors.black
+local fg=sel and colors.black or e[3]
+ui.fill(ICON_X,y,ICON_W,ICON_H,bg)
+ui.fill(ICON_X,y,ICON_W,1,sel and e[3] or e[3])
+ui.text(ICON_X+1,y,"["..e[1].."]",sel and colors.white or e[3],e[3],ICON_W-2)
+ui.text(ICON_X+1,y+1,e[1],fg,bg,ICON_W-2)
+if sel then
+ui.text(ICON_X+1,y+2,"> ENTER para abrir",colors.gray,bg,ICON_W-2)
 end
 end
+end
+ui.text(2,h-2,"Flechas: mover | Enter: seleccionar | Esc: volver",colors.gray,colors.black,w-2)
 end
 function M.touch(ctx,x,y,startApp)
-if y<8 then return end
-local i=math.floor((y-8)/3)+1
-if items[i] then
-if items[i][2]=="shutdown" then os.shutdown()
-else startApp(items[i][2],ctx) end
+for i,e in ipairs(items) do
+local iy=ICON_Y0+(i-1)*ICON_H
+if x>=ICON_X and x<ICON_X+ICON_W and y>=iy and y<iy+ICON_H then
+cursor=i
+if e[2]=="shutdown" then os.shutdown()
+else startApp(e[2],ctx) end
+return
 end
+end
+end
+function M.key(ctx,key)
+if key==keys.up then
+cursor=cursor>1 and cursor-1 or #items
+return true
+elseif key==keys.down then
+cursor=cursor<#items and cursor+1 or 1
+return true
+elseif key==keys.enter then
+local e=items[cursor]
+if e[2]=="shutdown" then os.shutdown()
+else
+local startApp=function(n,ctx)
+local ok,app=pcall(require,"apps."..n)
+if not ok then return end
+ctx.app=app;ctx.appName=n
+if app.open then pcall(app.open,ctx) end
+end
+startApp(e[2],ctx)
+end
+return true
+end
+return false
 end
 return M
 ]],
@@ -298,18 +350,38 @@ ui.text(2,7,ct(S.msg,w-2),S.srch and colors.gray or colors.blue,colors.white,w-2
 local f=(S.pg-1)*math.max(1,h-10)+1
 for i=f,math.min(#S.r,f+h-11) do
 local y,it=9+i-f,S.r[i]
-ui.text(2,y,(i==S.sel and "> " or " ")..ct(it.name,w-4),i==S.sel and colors.blue or colors.black,colors.white,w-2)
+local sel=i==S.sel
+ui.text(2,y,(sel and "> " or " ")..ct(it.name,w-4),sel and colors.yellow or colors.black,colors.white,w-2)
 if y+1<h-1 then ui.text(4,y+1,ct(it.artist,w-6),colors.gray,colors.white,w-4) end
 end
+ui.text(2,h-2,"Flechas: navegar | Enter: reproducir | Esc: volver",colors.gray,colors.black,w-2)
 end
 function M.touch(ctx,x,y)
 local _,h=term.getSize()
 if y==5 and x<11 then srch(ctx);return end
 if y==5 and x>=11 and x<20 then stop();S.msg="Detenido";return end
-if y>=9 and y<h-1 then
+if y>=9 and y<h-2 then
 local i=(S.pg-1)*math.max(1,h-10)+math.floor((y-9)/2)+1
 if S.r[i] then S.sel=i;play(ctx,S.r[i]) end
 end
+end
+function M.key(ctx,key)
+if key==keys.up then
+S.sel=S.sel>1 and S.sel-1 or 1
+if S.sel<(S.pg-1)*math.max(1,term.getSize()/2)+1 then S.pg=1 end
+return true
+elseif key==keys.down then
+S.sel=S.sel<#S.r and S.sel+1 or #S.r
+local perPg=math.max(1,term.getSize()/2)
+if S.sel>S.pg*perPg then S.pg=math.ceil(S.sel/perPg) end
+return true
+elseif key==keys.enter then
+if #S.r==0 then srch(ctx); return true end
+local item=S.r[S.sel]
+if item then play(ctx,item) end
+return true
+end
+return false
 end
 return M
 ]],
@@ -346,9 +418,11 @@ ui.btn(20,6,8,"Scan",colors.gray)
 ui.text(2,8,S.msg,colors.blue,colors.white,w-2)
 for i,tr in ipairs(S.t) do
 local y=10+i-1
-if y>=h-1 then break end
-ui.text(2,y,(i==S.sel and "> " or " ")..fs.getName(tr),i==S.sel and colors.blue or colors.black,colors.white,w-2)
+if y>=h-2 then break end
+local sel=i==S.sel
+ui.text(2,y,(sel and "> " or " ")..fs.getName(tr),sel and colors.yellow or colors.black,colors.white,w-2)
 end
+ui.text(2,h-2,"Flechas: navegar | Enter: reproducir | Esc: volver",colors.gray,colors.black,w-2)
 end
 local function play(ctx)
 local p=S.t[S.sel]
@@ -396,10 +470,23 @@ S.stop=true
 for _,s in ipairs(S.sp) do if s.stop then pcall(s.stop) end end
 S.play=false;S.msg="Detenido"
 elseif y==6 then scan()
-elseif y>=10 then
+elseif y>=10 and y<h-2 then
 local i=y-9
 if S.t[i] then S.sel=i end
 end
+end
+function M.key(ctx,key)
+if key==keys.up then
+S.sel=S.sel>1 and S.sel-1 or 1
+return true
+elseif key==keys.down then
+S.sel=S.sel<#S.t and S.sel+1 or #S.t
+return true
+elseif key==keys.enter then
+play(ctx)
+return true
+end
+return false
 end
 return M
 ]],
